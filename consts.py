@@ -22,7 +22,7 @@ def reverse_replace_matrix():
     return m
 
 
-def width_matrix():
+def wide_matrix():
     m = [[32,  1,   2,   3,   4,   5],
          [4,   5,   6,   7,   8,   9],
          [8,   9,   10,  11,  12,  13],
