@@ -74,16 +74,6 @@ def replace(bits, matrix):
     return new_bits
 
 
-# Function replaces bits of all blocks in the text
-def replace_blocks_bits(text_blocks):
-    new_text_blocks = []
-    matrix = initial_replace_matrix()
-    for block in text_blocks:
-        new_block = replace(block, matrix)
-        new_text_blocks.append(new_block)
-    return new_text_blocks
-
-
 # Function extracts left half of bits 2D array
 def left_half(bits):
     left = bitarray()
@@ -241,11 +231,13 @@ def transform_key(original_key, iteration):
     return key
 
 
-# Main encoding function
+# Function encodes each block from the list
 def encode_blocks(blocks, key):
     encoded_blocks = []
     for block in blocks:
-        left, right = separate_block(block)
+        # At first all bits of the block are replaced according to one matrix
+        bits = replace(block, initial_replace_matrix())
+        left, right = separate_block(bits)
         for i in range(16):
             left_copy = left
             left = right
@@ -255,10 +247,54 @@ def encode_blocks(blocks, key):
             right = XOR(left_copy, encode_part(right, new_key))
         # After 16 iterations two halfs are concatenated together again
         bits = left + right
-        # Bits are replaced in a specific order
+        # At last all bits of the block are replaces according to the other matrix
         bits = replace(bits, reverse_replace_matrix())
         encoded_blocks.append(bits)
     return encoded_blocks
+
+
+# Function decodes each block from the list
+def decode_blocks(blocks, key):
+    decoded_blocks = []
+    for block in blocks:
+        bits = replace(block, reverse_replace_matrix())
+        left, right = separate_block(bits)
+        for i in range(16):
+            right_copy = right
+            left_copy = left
+            right = left
+            new_key = transform_key(key, i)
+            left = XOR(right_copy, encode_part(left_copy, new_key))
+        bits = left + right
+        bits = replace(bits, initial_replace_matrix())
+        decoded_blocks.append(bits)
+    return decoded_blocks
+
+
+# Main encoding function
+def encode(text_bytes, key):
+    # If the text is too short we add empty (0x0) bytes at the beginning to make it multiple 8-bit long
+    text_bytes = preprocess(text_bytes)
+    # Now convert from bytes into bits
+    bits = to_bits(text_bytes)
+    # Separating bits into 64-bit blocks
+    bits_blocks = bits_to_blocks(bits)
+    # Encoding each block
+    encoded_blocks = encode_blocks(bits_blocks, key)
+    # Concatenating blocks into a single sequence of bits
+    encoded_text = blocks_to_bits(encoded_blocks)
+    return encoded_text
+
+
+# Main decoding function
+def decode(encoded_text, key):
+    # Split encoded data into blocks
+    encoded_blocks = bits_to_blocks(encoded_text)
+    # Decoding each block
+    decoded_blocks = decode_blocks(encoded_blocks, key)
+    # Concatenating blocks into a single sequence of bits
+    decoded_text = blocks_to_bits(decoded_blocks)
+    return decoded_text
 
 
 def main():
@@ -268,19 +304,13 @@ def main():
     raw_text = input("Enter text to encode: ")
     # UTF-8 encoding the text
     text_bytes = raw_text.encode('utf-8')
-    # If the text is too short we add empty (0x0) bytes at the beginning to make it multiple 8-bit long
-    text_bytes = preprocess(text_bytes)
-    # Now convert from bytes into bits
-    text_bits = to_bits(text_bytes)
-    # Separating bits into 64-bit blocks
-    text_bits_blocks = bits_to_blocks(text_bits)
-    # Replacing bits in blocks
-    replaced_blocks_bits = replace_blocks_bits(text_bits_blocks)
-    # Encoding each block
-    encoded_blocks = encode_blocks(replaced_blocks_bits, key)
-    # Concatenating blocks into a single sequence of bits
-    encoded_text = blocks_to_bits(encoded_blocks)
-    print(f'Encoded data in: \nBytes: {encoded_text.tobytes()} \nBits: {encoded_text.to01()}')
+    text_bits = bitarray()
+    text_bits.frombytes(text_bytes)
+    print(f'Raw text in: \nBytes: {text_bytes} \nBits: {text_bits.to01()}')
+    encoded_text = encode(text_bytes, key)
+    print(f'\nEncoded text in: \nBytes: {encoded_text.tobytes()} \nBits: {encoded_text.to01()}')
+    decoded_text = decode(encoded_text, key)
+    print(f'\nDecoded text in: \nBytes: {decoded_text.tobytes()} \nBits: {decoded_text.to01()}')
 
 
 if __name__ == "__main__":
