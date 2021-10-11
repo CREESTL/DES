@@ -18,7 +18,9 @@ import random
 # TODO and does all the stuff
 # TODO how many bits is there in the key? 64 or 56?
 
-# Function generates 6-byte (48-bit) key used for encoding
+# Function generates 64-bit key used for encoding
+# In the code itself only 56 bits are used
+# Other 8 are used for parity check - they are removed with first key bits replacing
 def generate_key():
     key = bitarray()
     for i in range(64):
@@ -36,8 +38,6 @@ def preprocess(text_bytes):
 
 
 # Function splits encoded text into 8-byte blocks
-# If there is not enough characters to form another 8-byte block
-# empty 0x0 bytes are added to the end of the block
 def text_to_blocks(text_bytes):
     blocks = []
     start = 0
@@ -62,13 +62,15 @@ def to_bits(block):
 
 # Function replaces bits of a 8-byte block
 def initial_replace_block(block):
+    # Get the right matrix
     matrix = initial_replace_matrix()
+    # Convert block bytes to bits
     block_bits = to_bits(block)
     line_length = len(matrix[0])
     for row_num, row in enumerate(matrix):
         for col_num, el in enumerate(row):
             old_index = line_length * row_num + col_num
-            # Original matrix is created for arrays with indexing starting with 1 - no 0
+            # Original matrix is created for arrays with indexing starting with 1 - not 0
             # So we have to decrease each value from the matrix by one
             new_index = el - 1
             block_bits[new_index], block_bits[old_index] = block_bits[old_index], block_bits[new_index]
@@ -157,7 +159,7 @@ def bits_to_blocks(bits):
     # An array of bitarrays
     blocks = []
     start = 0
-    end = 7
+    end = 6
     block = bits[start:end]
     blocks.append(block)
     while end < len(bits):
@@ -201,12 +203,11 @@ def encode_part(bits, key):
         # Get the number of row and column of S matrix from the bits block
         # The number of row is first two bits of the block
         # Get the binary string of bits and convert in to integer
-        num_row = int(block[:2].to01(), 2)
+        # We need to subtract 1 because indexing starts with 0
+        num_row = int(block[:2].to01(), 2) - 1
         # The number of the column is all the rest
         # Get the binary string of bits and convert in to integer
-        # TODO num col in some block = 20 - max is 15! (input string is 'aaa')
-        # TODO FINISHED HERE!
-        num_col = int(block[2:].to01(), 2)
+        num_col = int(block[2:].to01(), 2) - 1
         # That is the number we use to replace a 6-bit block with
         el = s[num_row][num_col]
         # Convert the number to bits
@@ -335,7 +336,7 @@ def main():
     raw_text = input("Введите исходный текст: ")
     # UTF-8 encoding the text
     text_bytes = raw_text.encode('utf-8')
-    # If the text is too short we add empty (0x0) bytes at the beginning to make it /8 bytes long
+    # If the text is too short we add empty (0x0) bytes at the beginning to make it multiple 8-bit long
     text_bytes = preprocess(text_bytes)
     print(f"Text bytes are {text_bytes}")
     # Separating the text into 8-byte blocks
@@ -347,7 +348,6 @@ def main():
     # Encoding each block
     encoded_data = encode_blocks(replaced_blocks, key)
     print(f'Encoded data is: \n {encoded_data}')
-
 
 
 if __name__ == "__main__":
