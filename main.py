@@ -34,8 +34,8 @@ def preprocess(text_bytes):
     return bytes(b_ar)
 
 
-# Function splits encoded text into 8-byte blocks
-def text_to_blocks(bits):
+# Function splits encoded text into 64-bit blocks
+def bits_to_blocks(bits):
     blocks = []
     start = 0
     end = 64
@@ -47,6 +47,14 @@ def text_to_blocks(bits):
         block = bits[start:end]
         blocks.append(block)
     return blocks
+
+
+# Function concatenates blocks into a single bits sequence
+def blocks_to_bits(blocks):
+    bits = bitarray()
+    for block in blocks:
+        bits += block
+    return bits
 
 
 # Function converts 8-byte block into bits (bitarray)
@@ -67,7 +75,7 @@ def replace(bits, matrix):
 
 
 # Function replaces bits of all blocks in the text
-def replace_blocks(text_blocks):
+def replace_blocks_bits(text_blocks):
     new_text_blocks = []
     matrix = initial_replace_matrix()
     for block in text_blocks:
@@ -235,7 +243,7 @@ def transform_key(original_key, iteration):
 
 # Main encoding function
 def encode_blocks(blocks, key):
-    encoded_data = bitarray()
+    encoded_blocks = []
     for block in blocks:
         left, right = separate_block(block)
         for i in range(16):
@@ -249,8 +257,8 @@ def encode_blocks(blocks, key):
         bits = left + right
         # Bits are replaced in a specific order
         bits = replace(bits, reverse_replace_matrix())
-        encoded_data += bits
-    return encoded_data
+        encoded_blocks.append(bits)
+    return encoded_blocks
 
 
 def main():
@@ -264,13 +272,15 @@ def main():
     text_bytes = preprocess(text_bytes)
     # Now convert from bytes into bits
     text_bits = to_bits(text_bytes)
-    # Separating the text into 8-byte (64-bit) blocks
-    text_blocks = text_to_blocks(text_bits)
+    # Separating bits into 64-bit blocks
+    text_bits_blocks = bits_to_blocks(text_bits)
     # Replacing bits in blocks
-    replaced_blocks = replace_blocks(text_blocks)
+    replaced_blocks_bits = replace_blocks_bits(text_bits_blocks)
     # Encoding each block
-    encoded_data = encode_blocks(replaced_blocks, key)
-    print(f'Encoded data in: \nBytes: {encoded_data.tobytes()[2:]} \nBits: {encoded_data.to01()}')
+    encoded_blocks = encode_blocks(replaced_blocks_bits, key)
+    # Concatenating blocks into a single sequence of bits
+    encoded_text = blocks_to_bits(encoded_blocks)
+    print(f'Encoded data in: \nBytes: {encoded_text.tobytes()} \nBits: {encoded_text.to01()}')
 
 
 if __name__ == "__main__":
