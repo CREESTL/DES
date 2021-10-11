@@ -1,5 +1,6 @@
 from consts import *
 from bitarray import bitarray
+from bitarray.util import int2ba as int2bits
 import random
 
 """
@@ -38,51 +39,44 @@ def preprocess(text_bytes):
 
 
 # Function splits encoded text into 8-byte blocks
-def text_to_blocks(text_bytes):
+def text_to_blocks(bits):
     blocks = []
     start = 0
-    end = 8
-    # If text is less than 8 bytes we still have to add it
-    blocks.append(text_bytes[start:end])
-    while end < len(text_bytes):
+    end = 64
+    # If text is less than 64 bits we still have to add it
+    blocks.append(bits[start:end])
+    while end < len(bits):
         start = end
-        end += 8
-        block = text_bytes[start:end]
+        end += 64
+        block = bits[start:end]
         blocks.append(block)
     return blocks
 
 
 # Function converts 8-byte block into bits (bitarray)
 # Returns bitarray - not simple list
-def to_bits(block):
+def to_bits(bytes):
     bits = bitarray()
-    bits.frombytes(block)
+    bits.frombytes(bytes)
     return bits
 
 
 # Function replaces bits of a 8-byte block
-def initial_replace_block(block):
+def replace_block(bits):
     # Get the right matrix
     matrix = initial_replace_matrix()
-    # Convert block bytes to bits
-    block_bits = to_bits(block)
-    line_length = len(matrix[0])
+    new_bits = bitarray()
     for row_num, row in enumerate(matrix):
         for col_num, el in enumerate(row):
-            old_index = line_length * row_num + col_num
-            # Original matrix is created for arrays with indexing starting with 1 - not 0
-            # So we have to decrease each value from the matrix by one
-            new_index = el - 1
-            block_bits[new_index], block_bits[old_index] = block_bits[old_index], block_bits[new_index]
-    new_block = block_bits.tobytes()
-    return new_block
+            new_bits.append(bits[el - 1])
+    return new_bits
 
 
 # Function replaces bits of all blocks in the text
-def initial_replace_blocks(text_blocks):
+def replace_blocks(text_blocks):
     new_text_blocks = []
     for block in text_blocks:
-        new_block = initial_replace_block(block)
+        new_block = replace_block(block)
         new_text_blocks.append(new_block)
     return new_text_blocks
 
@@ -170,6 +164,13 @@ def bits_to_blocks(bits):
     return blocks
 
 
+# Function converts sequence of less then 4 bits to the sequence of 4 bits
+def len4(bits):
+    while len(bits) != 4:
+        bits.insert(0, 0)
+    return bits
+
+
 # Function replaces bits of the 32-bit sequence (result of S)
 def initial_replace_sequence(bits):
     matrix = replace_p()
@@ -189,6 +190,7 @@ def encode_part(bits, key):
     # First we have to convert 32 bits to 48 bits
     bits = wide(bits)
     # Do the bits XOR key operation
+    # (key here is a 48-bit sequence generated from original 64-bit key
     bits = XOR(bits, key)
     # Now these bits are split into eight 6-bit blocks
     bits_blocks = bits_to_blocks(bits)
@@ -196,7 +198,7 @@ def encode_part(bits, key):
     seq = bitarray()
     # Now each block is replaced with a single 4-bit number and those numbers form a 32-bit sequence
     for i, block in enumerate(bits_blocks):
-        # List of 8 S matrix
+        # List of 8 S matrices
         all_S = S()
         # The matrix we need
         s = all_S[i - 1]
@@ -210,8 +212,10 @@ def encode_part(bits, key):
         num_col = int(block[2:].to01(), 2) - 1
         # That is the number we use to replace a 6-bit block with
         el = s[num_row][num_col]
-        # Convert the number to bits
-        el = bitarray(el)
+        # Convert the integer to bits
+        el = int2bits(el)
+        # Make these bits 4 units long (add zero bits at the beginning)
+        el = len4(el)
         # Add element(bitarray) to sequence(bitarray)
         seq += el
     # After that we have to replace sequence's bits in a specific order
@@ -312,9 +316,8 @@ def final_replace_bits(bits):
 def encode_blocks(blocks, key):
     encoded_data = bitarray()
     for block in blocks:
-        bits = to_bits(block)
         # Two halfs of the block - 32 bits each
-        left, right = separate_block(bits)
+        left, right = separate_block(block)
         for i in range(16):
             left_copy = left
             left = right
@@ -333,21 +336,20 @@ def main():
     # Generating a key
     key = generate_key()
     # Getting a raw user input
-    raw_text = input("Введите исходный текст: ")
+    raw_text = input("Enter text to encode: ")
     # UTF-8 encoding the text
     text_bytes = raw_text.encode('utf-8')
     # If the text is too short we add empty (0x0) bytes at the beginning to make it multiple 8-bit long
     text_bytes = preprocess(text_bytes)
-    print(f"Text bytes are {text_bytes}")
-    # Separating the text into 8-byte blocks
-    text_blocks = text_to_blocks(text_bytes)
-    print(f"Text blocks are {text_blocks}")
+    # Now convert from bytes into bits
+    text_bits = to_bits(text_bytes)
+    # Separating the text into 8-byte (64-bit) blocks
+    text_blocks = text_to_blocks(text_bits)
     # Replacing bits in blocks
-    replaced_blocks = initial_replace_blocks(text_blocks)
-    print(f"Replaced blocks are {replaced_blocks}")
+    replaced_blocks = replace_blocks(text_blocks)
     # Encoding each block
     encoded_data = encode_blocks(replaced_blocks, key)
-    print(f'Encoded data is: \n {encoded_data}')
+    print(f'Encoded data in: \nBytes: {encoded_data.tobytes()[2:]} \nBits: {encoded_data.to01()}')
 
 
 if __name__ == "__main__":
