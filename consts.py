@@ -98,6 +98,11 @@ def S8():
     return m
 
 
+def S():
+    all_S = [S1(), S2(), S3(), S4(), S5(), S6(), S7(), S8()]
+    return all_S
+
+
 def replace_p():
     m = [[16,  7,   20,  21],
          [29,  12,  28,  17],
@@ -134,7 +139,7 @@ def key_finish_matrix():
     return m
 
 
-def bytes_move_table():
+def bits_move_table():
     d = {
         1: 1,
         2: 1,
@@ -153,3 +158,4 @@ def bytes_move_table():
         15: 2,
         16: 1
     }
+    return d
