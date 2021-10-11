@@ -15,10 +15,6 @@ import random
 """
 
 
-# TODO make a single replace function that takes the sequence of bits and the replace matrix as arguments
-# TODO and does all the stuff
-# TODO how many bits is there in the key? 64 or 56?
-
 # Function generates 64-bit key used for encoding
 # In the code itself only 56 bits are used
 # Other 8 are used for parity check - they are removed with first key bits replacing
@@ -55,16 +51,14 @@ def text_to_blocks(bits):
 
 # Function converts 8-byte block into bits (bitarray)
 # Returns bitarray - not simple list
-def to_bits(bytes):
+def to_bits(_bytes):
     bits = bitarray()
-    bits.frombytes(bytes)
+    bits.frombytes(_bytes)
     return bits
 
 
-# Function replaces bits of a 8-byte block
-def replace_block(bits):
-    # Get the right matrix
-    matrix = initial_replace_matrix()
+# Function replaces bits in sequence according to the given matrix
+def replace(bits, matrix):
     new_bits = bitarray()
     for row_num, row in enumerate(matrix):
         for col_num, el in enumerate(row):
@@ -75,13 +69,14 @@ def replace_block(bits):
 # Function replaces bits of all blocks in the text
 def replace_blocks(text_blocks):
     new_text_blocks = []
+    matrix = initial_replace_matrix()
     for block in text_blocks:
-        new_block = replace_block(block)
+        new_block = replace(block, matrix)
         new_text_blocks.append(new_block)
     return new_text_blocks
 
 
-# Function extracts left half of bits
+# Function extracts left half of bits 2D array
 def left_half(bits):
     left = bitarray()
     start = 0
@@ -97,7 +92,7 @@ def left_half(bits):
     return left
 
 
-# Function extracts right half of bits
+# Function extracts right half of bits 2D array
 def right_half(bits):
     right = bitarray()
     start = 4
@@ -117,26 +112,9 @@ def right_half(bits):
 # Part 1 - left half of matrix of 64 bits
 # Part 2 - right half of matrix of 64 bits
 def separate_block(bits):
-    # left, right - both are bitarrays
     left = left_half(bits)
     right = right_half(bits)
     return left, right
-
-
-# Function converts 32-bit bitarray into 48-bit bitarray
-def wide(half):
-    matrix = wide_matrix()
-    # Actually this is not a matrix but rather a 1D array - easier to work with
-    new_matrix = bitarray()
-    for row_num, row in enumerate(matrix):
-        for col_num, el in enumerate(row):
-            # Each element of wide-matrix represents the index of the element of the original
-            # matrix. Wide-matrix itself stays untouched
-            index_to_take_from = el - 1
-            # Take the element with that index from the original matrix and put it to the new matrix
-            new_matrix.append(half[index_to_take_from])
-    # Now this is a bitarray of length 48 formed from a 32-bit bitarray
-    return new_matrix
 
 
 # Function for XOR operation between the key and other bits
@@ -149,7 +127,7 @@ def XOR(bits, key):
 
 
 # Function splits 48-bit bitarray into 8 blocks 6 bits each
-def bits_to_blocks(bits):
+def to8blocks(bits):
     # An array of bitarrays
     blocks = []
     start = 0
@@ -171,30 +149,16 @@ def len4(bits):
     return bits
 
 
-# Function replaces bits of the 32-bit sequence (result of S)
-def initial_replace_sequence(bits):
-    matrix = replace_p()
-    new_bits = bitarray()
-    for row_num, row in enumerate(matrix):
-        for col_num, el in enumerate(row):
-            # Move bit with index 16 to the place with index 1 and so on...
-            index = el - 1
-            # A single bit is added using append
-            new_bits.append(bits[index])
-    return new_bits
-
-
 # Function encodes a 32-bit half of a block
 # Result is another 32-bit sequence
 def encode_part(bits, key):
     # First we have to convert 32 bits to 48 bits
-    bits = wide(bits)
+    bits = replace(bits, wide_matrix())
     # Do the bits XOR key operation
-    # (key here is a 48-bit sequence generated from original 64-bit key
+    # (key here is a 48-bit sequence generated from original 64-bit key)
     bits = XOR(bits, key)
     # Now these bits are split into eight 6-bit blocks
-    bits_blocks = bits_to_blocks(bits)
-    # A sequence of 4-bit numbers
+    bits_blocks = to8blocks(bits)
     seq = bitarray()
     # Now each block is replaced with a single 4-bit number and those numbers form a 32-bit sequence
     for i, block in enumerate(bits_blocks):
@@ -219,32 +183,18 @@ def encode_part(bits, key):
         # Add element(bitarray) to sequence(bitarray)
         seq += el
     # After that we have to replace sequence's bits in a specific order
-    seq = initial_replace_sequence(seq)
+    seq = replace(seq, replace_p())
     return seq
 
 
-# Function replaces bits of the key in a specific order
-# It removes 8 bits from the key
-# Returns a 56-bit sequence
-def initial_replace_key(key):
-    matrix = key_prepare_matrix()
-    new_bits = bitarray()
-    for row_num, row in enumerate(matrix):
-        for col_num, el in enumerate(row):
-            # Move bit with index 16 to the place with index 1 and so on...
-            index = el - 1
-            new_bits.append(key[index])
-    return new_bits
-
-
-# Function extracts upper half of bits
+# Function extracts upper half of bits 2D array
 def up_half(bits):
     l = len(bits)
     up = bits[:int(l / 2)]
     return up
 
 
-# Function extracts down half of bits
+# Function extracts down half of bits 2D array
 def down_half(bits):
     l = len(bits)
     down = bits[int(l / 2):]
@@ -265,22 +215,10 @@ def move_left(bits, iteration):
     return bits << num_bits_to_move
 
 
-# Function replaces bits of the key in a specific order
-def finish_replace_key(key):
-    matrix = key_finish_matrix()
-    new_bits = bitarray()
-    for row_num, row in enumerate(matrix):
-        for col_num, el in enumerate(row):
-            # Move bit with index 16 to the place with index 1 and so on...
-            index = el - 1
-            new_bits.append(key[index])
-    return new_bits
-
-
 # Function transforms a key to a new one each encoding iteration
 def transform_key(original_key, iteration):
     # First we replace bits of the key in a specific order
-    replaced_key = initial_replace_key(original_key)
+    replaced_key = replace(original_key, key_prepare_matrix())
     # Then we have to split the replaced key bit into halfs horizontally
     left, right = separate_key(replaced_key)
     # Then we have to move each half two bits to the left a number of times
@@ -290,44 +228,27 @@ def transform_key(original_key, iteration):
     # Result is a 56-bit sequence
     key = left + right
     # Replace bits of key once again
-    key = finish_replace_key(key)
+    key = replace(key, key_finish_matrix())
     # The new key is ready
     return key
 
 
-# Function replaces bits one final time
-# Result is the encoded 64-bit block
-def final_replace_bits(bits):
-    matrix = reverse_replace_matrix()
-    new_bits = bitarray()
-    for row_num, row in enumerate(matrix):
-        for col_num, el in enumerate(row):
-            # Move bit with index 16 to the place with index 1 and so on...
-            index = el - 1
-            new_bits.append(bits[index])
-    return new_bits
-
-
-# Function does the following things:
-# - Separate each block's bits in 2 parts
-# - Encode those parts for 16 iterations
-# - Сoncatenate two parts in one block back again
-# - Replace block's bits ones again
+# Main encoding function
 def encode_blocks(blocks, key):
     encoded_data = bitarray()
     for block in blocks:
-        # Two halfs of the block - 32 bits each
         left, right = separate_block(block)
         for i in range(16):
             left_copy = left
             left = right
-            # A new key is generated each iteration
+            # A new key is generated each iteration (from original 64-bit key)
             new_key = transform_key(key, i)
+            # One half is encoded per iteration
             right = XOR(left_copy, encode_part(right, new_key))
         # After 16 iterations two halfs are concatenated together again
         bits = left + right
         # Bits are replaced in a specific order
-        bits = final_replace_bits(bits)
+        bits = replace(bits, reverse_replace_matrix())
         encoded_data += bits
     return encoded_data
 
