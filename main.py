@@ -1,4 +1,5 @@
 from consts import *
+import string
 from bitarray import bitarray
 from bitarray.util import int2ba as int2bits
 import random
@@ -14,15 +15,21 @@ import random
 8) Done
 """
 
+# TODO delete adding empty bytes at the beginning?
+
 
 # Function generates 64-bit key used for encoding
 # In the code itself only 56 bits are used
 # Other 8 are used for parity check - they are removed with first key bits replacing
 def generate_key():
-    key = bitarray()
-    for i in range(64):
-        key.append(random.randint(0, 1))
-    return key
+    # Generate a sequence of characters and numbers
+    key_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for i in range(8))
+    # Convert it to bytes
+    _bytes = key_string.encode('ascii')
+    bits = bitarray()
+    # Now it's 64 bits
+    bits.frombytes(_bytes)
+    return key_string, bits
 
 
 # If it's needed the function adds empty bytes ar the end of the string to make it the size that
@@ -168,10 +175,10 @@ def encode_part(bits, key):
         # The number of row is first two bits of the block
         # Get the binary string of bits and convert in to integer
         # We need to subtract 1 because indexing starts with 0
-        num_row = int(block[:2].to01(), 2) - 1
+        num_row = int(str(block[0])+str(block[-1]), 2) - 1
         # The number of the column is all the rest
         # Get the binary string of bits and convert in to integer
-        num_col = int(block[2:].to01(), 2) - 1
+        num_col = int(block[1:-1].to01(), 2) - 1
         # That is the number we use to replace a 6-bit block with
         el = s[num_row][num_col]
         # Convert the integer to bits
@@ -210,7 +217,8 @@ def separate_key(key):
 def move_left(bits, iteration):
     table = bits_move_table()
     num_bits_to_move = table[iteration + 1]
-    return bits << num_bits_to_move
+    bits = bits << num_bits_to_move
+    return bits
 
 
 # Function transforms a key to a new one each encoding iteration
@@ -226,6 +234,7 @@ def transform_key(original_key, iteration):
     # Result is a 56-bit sequence
     key = left + right
     # Replace bits of key once again
+    # That converts 56 bits into 48 bits
     key = replace(key, key_finish_matrix())
     # The new key is ready
     return key
@@ -237,6 +246,7 @@ def encode_blocks(blocks, key):
     for block in blocks:
         # At first all bits of the block are replaced according to one matrix
         bits = replace(block, initial_replace_matrix())
+        # Bits are separated in halfs
         left, right = separate_block(bits)
         for i in range(16):
             left_copy = left
@@ -299,18 +309,25 @@ def decode(encoded_text, key):
 
 def main():
     # Generating a key
-    key = generate_key()
+    key_string, key_bits = generate_key()
     # Getting a raw user input
     raw_text = input("Enter text to encode: ")
     # UTF-8 encoding the text
     text_bytes = raw_text.encode('utf-8')
     text_bits = bitarray()
     text_bits.frombytes(text_bytes)
-    print(f'Raw text in: \nBytes: {text_bytes} \nBits: {text_bits.to01()}')
-    encoded_text = encode(text_bytes, key)
+    print(f'Key in: \nString: {key_string} \nBits: {key_bits.to01()}')
+    print(f'\nRaw text in: \nBytes: {text_bytes} \nBits: {text_bits.to01()}')
+    encoded_text = encode(text_bytes, key_bits)
     print(f'\nEncoded text in: \nBytes: {encoded_text.tobytes()} \nBits: {encoded_text.to01()}')
-    decoded_text = decode(encoded_text, key)
+    decoded_text = decode(encoded_text, key_bits)
     print(f'\nDecoded text in: \nBytes: {decoded_text.tobytes()} \nBits: {decoded_text.to01()}')
+
+
+    if decode(encode(text_bytes, key_bits), key_bits) == text_bytes:
+        print("\nRight")
+    else:
+        print("\nWrong")
 
 
 if __name__ == "__main__":
