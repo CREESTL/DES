@@ -35,12 +35,12 @@ def generate_key():
 
 # If it's needed the function adds empty bytes ar the end of the string to make it the size that
 # can be divided by 8 (bytes)
-def preprocess(text_bytes):
-    b_ar = bytearray(text_bytes)
-    while len(b_ar) % 8 != 0:
-        b_ar.append(0)
-    return bytes(b_ar)
-
+# def preprocess(text_bytes):
+#     b_ar = bytearray(text_bytes)
+#     while len(b_ar) % 8 != 0:
+#         b_ar.append(0)
+#     return bytes(b_ar)
+#
 
 # Function splits encoded text into 64-bit blocks
 def bits_to_blocks(bits):
@@ -282,10 +282,33 @@ def decode_blocks(blocks, key):
     return decoded_blocks
 
 
+def preprocess(text):  # Add padding to the datas using PKCS5 spec.
+    a = text
+    pad_len = 8 - (len(text) % 8)
+    text += pad_len * chr(pad_len)
+    return text
+
+
+def postprocess(text):  # Remove the padding of the plain text (it assume there is padding)
+    pad_len = ord(text[-1])
+    text = text[:-pad_len]
+    return text
+
+
+def bits_to_string(bits):  # Recreate the string from the bit array
+    _bytes = bits.tobytes()
+    s = ''
+    res = ''
+    res = ''.join([chr(int(y, 2)) for y in [''.join([str(x) for x in _bytes]) for _bytes in nsplit(array, 8)]])
+    for byte in _bytes:
+        s = s.join(str(byte))
+    for char in s:
+        res = res.join(chr(int(char, 2)))
+    return res
+
+
 # Main encoding function
 def encode(text_bytes, key):
-    # If the text is too short we add empty (0x0) bytes at the beginning to make it multiple 8-bit long
-    text_bytes = preprocess(text_bytes)
     # Now convert from bytes into bits
     bits = to_bits(text_bytes)
     # Separating bits into 64-bit blocks
@@ -313,8 +336,10 @@ def main():
     key_string, key_bits = generate_key()
     # Getting a raw user input
     raw_text = input("Enter text to encode: ")
+    # Preprocess the text - add padding to the end
+    text = preprocess(raw_text)
     # Convert text to bytes via ASCII
-    text_bytes = raw_text.encode('ascii')
+    text_bytes = text.encode('ascii')
     text_bits = bitarray()
     text_bits.frombytes(text_bytes)
     print(f'Key in: \nString: {key_string} \nBits: {key_bits.to01()}')
