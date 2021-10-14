@@ -15,7 +15,8 @@ import random
 8) Done
 """
 
-# TODO delete adding empty bytes at the beginning?
+
+# TODO Do adding empty bytes at the beginning - not in the end?
 
 
 # Function generates 64-bit key used for encoding
@@ -161,7 +162,7 @@ def encode_part(bits, key):
     bits = replace(bits, wide_matrix())
     # Do the bits XOR key operation
     # (key here is a 48-bit sequence generated from original 64-bit key)
-    bits = XOR(bits, key)
+    bits = XOR(key, bits)
     # Now these bits are split into eight 6-bit blocks
     bits_blocks = to8blocks(bits)
     seq = bitarray()
@@ -170,15 +171,14 @@ def encode_part(bits, key):
         # List of 8 S matrices
         all_S = S()
         # The matrix we need
-        s = all_S[i - 1]
+        s = all_S[i]
         # Get the number of row and column of S matrix from the bits block
         # The number of row is first two bits of the block
         # Get the binary string of bits and convert in to integer
-        # We need to subtract 1 because indexing starts with 0
-        num_row = int(str(block[0])+str(block[-1]), 2) - 1
+        num_row = int(str(block[0])+str(block[-1]), 2)
         # The number of the column is all the rest
         # Get the binary string of bits and convert in to integer
-        num_col = int(block[1:-1].to01(), 2) - 1
+        num_col = int(block[1:-1].to01(), 2)
         # That is the number we use to replace a 6-bit block with
         el = s[num_row][num_col]
         # Convert the integer to bits
@@ -267,16 +267,17 @@ def encode_blocks(blocks, key):
 def decode_blocks(blocks, key):
     decoded_blocks = []
     for block in blocks:
-        bits = replace(block, reverse_replace_matrix())
+        bits = replace(block, initial_replace_matrix())
         left, right = separate_block(bits)
         for i in range(16):
             right_copy = right
             left_copy = left
             right = left
-            new_key = transform_key(key, i)
+            # First key of decoding steps is the same as the 16th key of encoding steps
+            new_key = transform_key(key, 16 - i - 1)
             left = XOR(right_copy, encode_part(left_copy, new_key))
         bits = left + right
-        bits = replace(bits, initial_replace_matrix())
+        bits = replace(bits, reverse_replace_matrix())
         decoded_blocks.append(bits)
     return decoded_blocks
 
@@ -312,8 +313,8 @@ def main():
     key_string, key_bits = generate_key()
     # Getting a raw user input
     raw_text = input("Enter text to encode: ")
-    # UTF-8 encoding the text
-    text_bytes = raw_text.encode('utf-8')
+    # Convert text to bytes via ASCII
+    text_bytes = raw_text.encode('ascii')
     text_bits = bitarray()
     text_bits.frombytes(text_bytes)
     print(f'Key in: \nString: {key_string} \nBits: {key_bits.to01()}')
@@ -322,12 +323,6 @@ def main():
     print(f'\nEncoded text in: \nBytes: {encoded_text.tobytes()} \nBits: {encoded_text.to01()}')
     decoded_text = decode(encoded_text, key_bits)
     print(f'\nDecoded text in: \nBytes: {decoded_text.tobytes()} \nBits: {decoded_text.to01()}')
-
-
-    if decode(encode(text_bytes, key_bits), key_bits) == text_bytes:
-        print("\nRight")
-    else:
-        print("\nWrong")
 
 
 if __name__ == "__main__":
