@@ -12,14 +12,18 @@ def generate_key():
     return key
 
 
+# TODO BUG HERE! ord of Russian symbols is 1000+
+# TODO Russian symbols take 2+ bytes - not 1 in UTF-8
 # Function converts value into a string of bits of a given size
 def to_bits(val, size):
     # If value is an integer - convert it to bin and cut the '0b' part
     if isinstance(val, int):
         bits = bin(val)[2:]
     # If value is a string - convert it to int first, then convert to bin and cut the '0b' part
-    elif isinstance(val, str):
+    else:
         bits = bin(ord(val))[2:]
+    if len(bits) > size:
+        raise "TODO"
     # Add empty bits to fit the size
     while len(bits) < size:
         bits = "0" + bits
@@ -39,7 +43,13 @@ def string_to_bits(text):
 
 # Function converts array of bits into a string
 def bits_to_string(array):
-    res = ''.join([chr(int(y, 2)) for y in [''.join([str(x) for x in _bytes]) for _bytes in split(array, 8)]])
+    _bytes = split(array, 8)
+    res = ''
+    for byte in _bytes:
+        str_byte = ''
+        for bit in byte:
+            str_byte += str(bit)
+        res += chr(int(str_byte, 2))
     return res
 
 
@@ -116,7 +126,8 @@ def add_padding(text):
 # Function removes padding at the end of the text
 def remove_padding(text):
     pad_len = ord(text[-1])
-    return text[:-pad_len]
+    text = text[:-pad_len]
+    return text
 
 
 # Main encoding/decoding function
@@ -162,7 +173,8 @@ def main(key, text, mode):
     final_res = bits_to_string(result)
     # If decoding - remove padding of the string
     if mode == 1:
-        return remove_padding(final_res)
+        stripped = remove_padding(final_res)
+        return stripped
     else:
         return final_res
 
