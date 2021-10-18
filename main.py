@@ -2,8 +2,6 @@ import random
 import string
 from consts import *
 
-# TODO make Russian symbols encoding too
-
 
 # Function generates random string (key)
 def generate_key():
@@ -12,8 +10,6 @@ def generate_key():
     return key
 
 
-# TODO BUG HERE! ord of Russian symbols is 1000+
-# TODO Russian symbols take 2+ bytes - not 1 in UTF-8
 # Function converts value into a string of bits of a given size
 def to_bits(val, size):
     # If value is an integer - convert it to bin and cut the '0b' part
@@ -22,8 +18,6 @@ def to_bits(val, size):
     # If value is a string - convert it to int first, then convert to bin and cut the '0b' part
     else:
         bits = bin(ord(val))[2:]
-    if len(bits) > size:
-        raise "TODO"
     # Add empty bits to fit the size
     while len(bits) < size:
         bits = "0" + bits
@@ -36,6 +30,13 @@ def string_to_bits(text):
     for char in text:
         # Each character is converted to 8 bits (string)
         bits = to_bits(char, 8)
+        # Have to raise Exception here. The reason is:
+        # In UTF-8 characters might have 1-4 bytes size. So if a user wants to decode a string containing characters of
+        # different sizes, the program will not manage to separate a large array of bits into parts for each character.
+        # That's why user should only use UTF-8 characters of one size for the program to work correctly. That size
+        # is 8 bits by default.
+        if len(bits) > 8:
+            raise Exception("Please use only UTF-8 characters of size of under 1 byte!")
         # String is converted into array of integers
         array.extend([int(x) for x in list(bits)])
     return array
@@ -194,11 +195,10 @@ if __name__ == '__main__':
     user_key = generate_key()
     # Getting a raw user input
     raw_text = input("Enter text to encode (UTF-8 characters only!): ")
-
     print(f"Generated key is: {user_key}")
     # Encoding / Decoding the text
     encoded_text = encode(user_key, raw_text)
     decoded_text = decode(user_key, encoded_text)
-    print(f"Encoded text is {encoded_text}")
-    print(f"Decoded text is {decoded_text}")
+    print(f"Encoded text is: {encoded_text}")
+    print(f"Decoded text is: {decoded_text}")
 
