@@ -1,4 +1,3 @@
-from bitarray import bitarray
 import random
 import string
 from consts import *
@@ -9,9 +8,6 @@ VEC_SIZE = 64
 # Size of the block of bits (set by user)(must be <= VEC_SIZE)
 BLOCK_SIZE = None
 
-
-# TODO Delete padding? Says here https://www.youtube.com/watch?v=TQsYcCPatjk
-# TODO Try without first bits and left shifting - just pass DES result to the next step
 
 # Function converts value into a string of bits of a given size
 def to_bits(val, size) -> str:
@@ -27,18 +23,11 @@ def to_bits(val, size) -> str:
     return bits
 
 
-# Function generates random key
-def generate_key(size) -> [int]:
+# Function generates a random sequence of bits of a given size
+def generate_bits(size) -> [int]:
     # Generate a sequence of bits
-    key = [random.randint(0, 1) for _ in range(size)]
-    return key
-
-
-# Function generates random initial vector (key)
-def generate_vector(size) -> [int]:
-    # Generate a sequence of bits
-    vec = [random.randint(0, 1) for _ in range(size)]
-    return vec
+    bits = [random.randint(0, 1) for _ in range(size)]
+    return bits
 
 
 # Function adds padding to the end of text if it's needed
@@ -53,8 +42,11 @@ def add_padding(bits) -> [int]:
 
 # Function removes padding from the end of the text (works with strings)
 def remove_padding(text) -> str:
-    pad_len = ord(text[-1])
-    text = text[:-pad_len]
+    # All characters allowed to stay if the text
+    allowed = string.ascii_letters + string.digits + string.whitespace + string.punctuation
+    for el in text:
+        if el not in allowed:
+            return text[:text.index(el)]
     return text
 
 
@@ -97,22 +89,22 @@ def replace(block, matrix) -> [int]:
 # Function moves bits to the left for several positions
 def move_left(bits, n) -> [int]:
     if n > len(bits):
-        return [0 for i in bits]
+        return [0 for _ in bits]
     else:
         return bits[n:] + [0 for _ in range(n)]
 
 
-# Function splits array into parts of size 'n'
-def split(s, n) -> [[int]]:
-    blocks = [s[k:k + n] for k in range(0, len(s), n)]
+# Function splits array into parts of a given size
+def split(arr, size) -> [[int]]:
+    blocks = [arr[k:k + size] for k in range(0, len(arr), size)]
     return blocks
 
 
-# Function splits array into parts if size 'n' and adds padding if needed
-def split_pad(text, num_parts) -> [[int]]:
+# Function splits array into parts of a given size and adds padding if needed
+def split_pad(arr, size) -> [[int]]:
     # Add padding (if needed)
-    text = add_padding(text)
-    blocks = [text[k:k + num_parts] for k in range(0, len(text), num_parts)]
+    arr = add_padding(arr)
+    blocks = [arr[k:k + size] for k in range(0, len(arr), size)]
     return blocks
 
 
@@ -136,9 +128,10 @@ def transform_key(key) -> [[int]]:
     return keys
 
 
-# Function applies the XOR operation between to arrays of bits
+# Function applies the XOR operation between two arrays of bits
 def xor(bits_1, bits_2) -> [int]:
-    return [x ^ y for x, y in zip(bits_1, bits_2)]
+    bits = [x ^ y for x, y in zip(bits_1, bits_2)]
+    return bits
 
 
 # Function replaces bits according to S boxes
@@ -163,7 +156,7 @@ def substitute(part) -> [int]:
 
 
 # Function encodes array of bits using DES algorithm
-def DES(bits, key, mode) -> [int]:
+def DES(bits, key) -> [int]:
     # Generate keys for all 16 rounds of encoding
     keys = transform_key(key)
     result = []
@@ -175,12 +168,7 @@ def DES(bits, key, mode) -> [int]:
     for i in range(16):
         # Convert a 32-bit array to 48-bit array
         wide_right = replace(right, expand_matrix())
-        # If encoding - use key according to iteration number
-        if mode == 0:
-            tmp = xor(keys[i], wide_right)
-        # If decoding - start with the last key
-        elif mode == 1:
-            tmp = xor(keys[15 - i], wide_right)
+        tmp = xor(keys[i], wide_right)
         # Replace bits according to s_boxes
         tmp = substitute(tmp)
         # Replace bits according to the matrix
@@ -204,34 +192,23 @@ def main(text, key, vec, mode):
     # The result - bits of encoded/decoded text
     result = []
     # Split the text to blocks of the same size and add padding if needed
-    # TODO Do i need the padding when decoding?
     blocks = split_pad(text, BLOCK_SIZE)
     for block in blocks:
         # Encode initial vector using DES
-        # Result is 64 bit array
-        vec = DES(vec, key, mode)
+        vec = DES(vec, key)
         # Get number of first bits
         first_bits = vec[:BLOCK_SIZE]
-        # Encoding mode
-        if mode == 0:
-            # XOR between text bits block and these first bits
-            encoded_block = xor(first_bits, block)
-            # Add encoded block to the result
-            result += encoded_block
-        # Decoding mode
-        elif mode == 1:
-            # XOR between encoded text bits and these first bits
-            decoded_block = xor(first_bits, block)
-            result += decoded_block
+        # It can be either encoded or decoded block
+        processed_block = xor(first_bits, block)
+        result += processed_block
         # Update the vector: left shift it for 't' bits and put first bits to the end of it
         vec = move_left(vec, BLOCK_SIZE)
         vec[-BLOCK_SIZE:] = first_bits
     # Convert result from bits into string
     str_result = bits_to_string(result)
     # Remove padding if decoding
-    # TODO remove padding but do it correctly
-    # if mode == 1:
-    #     str_result = remove_padding(str_result)
+    if mode == 1:
+        str_result = remove_padding(str_result)
     return str_result
 
 
@@ -250,16 +227,18 @@ if __name__ == '__main__':
     raw_text = input("Enter text to encode: ")
     # Setting size of the block
     BLOCK_SIZE = int(input("Enter block size in bits: "))
-    if BLOCK_SIZE > 10_000:
-        raise Exception("Please, enter a smaller block size for faster calculations")
+    # Bounds for block size
+    if BLOCK_SIZE > VEC_SIZE:
+        raise Exception(f"Please, enter a smaller block size ({VEC_SIZE} bits max.)")
     elif BLOCK_SIZE < 8:
-        raise Exception("Please, enter a bigger block size")
+        raise Exception(f"Please, enter a bigger block size (8 bits min.)")
     # Generating a random key
-    user_key = generate_key(KEY_SIZE)
+    user_key = generate_bits(KEY_SIZE)
     # Generating a random initial vector
-    initial_vector = generate_vector(VEC_SIZE)
+    initial_vector = generate_bits(VEC_SIZE)
     # Encoding / Decoding the text
     encoded_text = encode(raw_text, user_key, initial_vector)
     decoded_text = decode(encoded_text, user_key, initial_vector)
+    # Printing the results
     print(f"Encoded text is: {encoded_text}")
     print(f"Decoded text is: {decoded_text}")
