@@ -2,6 +2,9 @@ import random
 import string
 from consts import *
 
+"""
+Pure DES algorithm with encoding and decoding modes
+"""
 
 # Function generates random string (key)
 def generate_key():

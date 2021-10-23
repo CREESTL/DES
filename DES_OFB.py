@@ -2,6 +2,11 @@ import random
 import string
 from consts import *
 
+
+"""
+DES algorithm with Output Feedback Mode 
+"""
+
 # Size of initial vector
 VEC_SIZE = 64
 # Size of the block of bits (set by user)(must be <= VEC_SIZE)
