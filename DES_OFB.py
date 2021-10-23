@@ -2,8 +2,7 @@ import random
 import string
 from consts import *
 
-# Size of user key and initial vector (must be equal)
-KEY_SIZE = 64
+# Size of initial vector
 VEC_SIZE = 64
 # Size of the block of bits (set by user)(must be <= VEC_SIZE)
 BLOCK_SIZE = None
@@ -21,6 +20,15 @@ def to_bits(val, size) -> str:
     while len(bits) < size:
         bits = "0" + bits
     return bits
+
+
+# Function generates random string (key)
+def generate_key():
+    # Generate a sequence of characters and numbers
+    str_key = ''.join(random.choice(string.ascii_uppercase + string.digits + string.whitespace + string.punctuation) for i in range(8))
+    # Convert them to bits as well
+    bits = string_to_bits(str_key)
+    return str_key, bits
 
 
 # Function generates a random sequence of bits of a given size
@@ -224,7 +232,7 @@ def decode(text, key, vec):
 
 if __name__ == '__main__':
     # Getting a raw user input
-    raw_text = input("Enter text to encode: ")
+    raw_text = input("Enter text to encode (UTF-8 characters only!): ")
     # Setting size of the block
     BLOCK_SIZE = int(input("Enter block size in bits: "))
     # Bounds for block size
@@ -233,12 +241,13 @@ if __name__ == '__main__':
     elif BLOCK_SIZE < 8:
         raise Exception(f"Please, enter a bigger block size (8 bits min.)")
     # Generating a random key
-    user_key = generate_bits(KEY_SIZE)
+    key_str, key_bits = generate_key()
     # Generating a random initial vector
     initial_vector = generate_bits(VEC_SIZE)
     # Encoding / Decoding the text
-    encoded_text = encode(raw_text, user_key, initial_vector)
-    decoded_text = decode(encoded_text, user_key, initial_vector)
+    encoded_text = encode(raw_text, key_bits, initial_vector)
+    decoded_text = decode(encoded_text, key_bits, initial_vector)
     # Printing the results
+    print(f"Generated key is {key_str}")
     print(f"Encoded text is: {encoded_text}")
     print(f"Decoded text is: {decoded_text}")
