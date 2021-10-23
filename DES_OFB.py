@@ -253,6 +253,6 @@ if __name__ == '__main__':
     encoded_text = encode(raw_text, key_bits, initial_vector)
     decoded_text = decode(encoded_text, key_bits, initial_vector)
     # Printing the results
-    print(f"Generated key is {key_str}")
+    print(f"Generated key is: {key_str}")
     print(f"Encoded text is: {encoded_text}")
     print(f"Decoded text is: {decoded_text}")
