@@ -129,6 +129,7 @@ def remove_padding(text):
     pad_len = ord(text[-1])
     text = text[:-pad_len]
     return text
+    return text
 
 
 # Main encoding/decoding function
@@ -201,4 +202,3 @@ if __name__ == '__main__':
     decoded_text = decode(user_key, encoded_text)
     print(f"Encoded text is: {encoded_text}")
     print(f"Decoded text is: {decoded_text}")
-

@@ -204,8 +204,8 @@ def main(text, key, vec, mode):
     # The result - bits of encoded/decoded text
     result = []
     # Split the text to blocks of the same size and add padding if needed
-    # TODO Do i need the padding when decoding?
     blocks = split_pad(text, BLOCK_SIZE)
+    print(blocks)
     for block in blocks:
         # Encode initial vector using DES
         # Result is 64 bit array
