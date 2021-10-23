@@ -10,8 +10,9 @@ VEC_SIZE = 64
 BLOCK_SIZE = None
 
 
-# TODO Delete padding? Says here https://www.youtube.com/watch?v=TQsYcCPatjk
-# TODO Try without first bits and left shifting - just pass DES result to the next step
+# TODO Delete padding? Says here https://www.youtube.com/watch?v=TQsYcCPatjk (tried)
+# TODO Try without first bits and left shifting - just pass DES result to the next step (tried)
+# TODO Delete mode from DES - run it the same both times - HELPED!!!!!
 
 # Function converts value into a string of bits of a given size
 def to_bits(val, size) -> str:
@@ -53,8 +54,10 @@ def add_padding(bits) -> [int]:
 
 # Function removes padding from the end of the text (works with strings)
 def remove_padding(text) -> str:
-    pad_len = ord(text[-1])
-    text = text[:-pad_len]
+    allowed = string.ascii_letters + string.digits + string.whitespace + string.punctuation
+    for el in text:
+        if el not in allowed:
+            return text[:text.index(el)]
     return text
 
 
@@ -163,7 +166,7 @@ def substitute(part) -> [int]:
 
 
 # Function encodes array of bits using DES algorithm
-def DES(bits, key, mode) -> [int]:
+def DES(bits, key) -> [int]:
     # Generate keys for all 16 rounds of encoding
     keys = transform_key(key)
     result = []
@@ -175,12 +178,7 @@ def DES(bits, key, mode) -> [int]:
     for i in range(16):
         # Convert a 32-bit array to 48-bit array
         wide_right = replace(right, expand_matrix())
-        # If encoding - use key according to iteration number
-        if mode == 0:
-            tmp = xor(keys[i], wide_right)
-        # If decoding - start with the last key
-        elif mode == 1:
-            tmp = xor(keys[15 - i], wide_right)
+        tmp = xor(keys[i], wide_right)
         # Replace bits according to s_boxes
         tmp = substitute(tmp)
         # Replace bits according to the matrix
@@ -205,33 +203,24 @@ def main(text, key, vec, mode):
     result = []
     # Split the text to blocks of the same size and add padding if needed
     blocks = split_pad(text, BLOCK_SIZE)
-    print(blocks)
     for block in blocks:
         # Encode initial vector using DES
         # Result is 64 bit array
-        vec = DES(vec, key, mode)
+        vec = DES(vec, key)
         # Get number of first bits
         first_bits = vec[:BLOCK_SIZE]
-        # Encoding mode
-        if mode == 0:
-            # XOR between text bits block and these first bits
-            encoded_block = xor(first_bits, block)
-            # Add encoded block to the result
-            result += encoded_block
-        # Decoding mode
-        elif mode == 1:
-            # XOR between encoded text bits and these first bits
-            decoded_block = xor(first_bits, block)
-            result += decoded_block
+        # It can be either encoded or decoded block
+        processed_block = xor(first_bits, block)
+        result += processed_block
+        # Just pass the vector to the next iteration...
         # Update the vector: left shift it for 't' bits and put first bits to the end of it
         vec = move_left(vec, BLOCK_SIZE)
         vec[-BLOCK_SIZE:] = first_bits
     # Convert result from bits into string
     str_result = bits_to_string(result)
     # Remove padding if decoding
-    # TODO remove padding but do it correctly
-    # if mode == 1:
-    #     str_result = remove_padding(str_result)
+    if mode == 1:
+        str_result = remove_padding(str_result)
     return str_result
 
 
